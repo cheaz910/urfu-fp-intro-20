@@ -56,6 +56,7 @@ import Data.Foldable
     - Abs (Plus (Number 0) (Number 3)) ~> |0 + 3|
     - UnaryMinus (Plus (Mult (Number 2) (Number 2)) (Number 2)) ~> -((2 * 2) + 2)
 -}
+
 data Expr
   = Number Integer
   | Plus Expr Expr
@@ -65,16 +66,32 @@ data Expr
   | Abs Expr
   deriving Eq
 
+brackets :: Expr -> String
+brackets (Number x) = show x
+brackets x = "(" ++ (show x) ++ ")"
+
+instance Show Expr where
+  show (Number x) = show x
+  show (Plus x y) = brackets x ++ " + " ++ brackets y
+  show (Minus x y) = brackets x ++ " - " ++ brackets y
+  show (Mult x y) = brackets x ++ " * " ++ brackets y
+  show (UnaryMinus x) = "-" ++ brackets x
+  show (Abs x) = "|" ++ (show x) ++ "|"
+
 {-
   Реализуйте instance Semigroup для вектора:
 -}
 newtype Vec a = Vec { unVec :: [a] } deriving (Eq, Show)
 
+instance Semigroup (Vec Integer) where
+  Vec x <> Vec y = Vec (zipWith (+) x y)
 {-
   Реализуйте instance Semigroup для типа для логгирования:
 -}
 newtype LogEntry = LogEntry { unLogEntry :: String } deriving (Eq, Show)
 
+instance Semigroup LogEntry where
+  LogEntry x <> LogEntry y = LogEntry (x ++ y)
 {-
   В `src/Lecture07/Money.hs` определены:
     - тип `Money a` для денег
@@ -83,22 +100,35 @@ newtype LogEntry = LogEntry { unLogEntry :: String } deriving (Eq, Show)
 
   Реализуйте инстансы Semigroup для Money a.
 -}
+instance Semigroup (Money USD) where
+  x <> y = mkDollars(getMoney x + getMoney y)
 
+instance Semigroup (Money RUB) where
+  x <> y = mkRubbles(getMoney x + getMoney y)
 {-
   Реализуйте инстанс Functor для ExactlyOne
 -}
 data ExactlyOne a = ExactlyOne a deriving (Eq, Show)
+
+instance Functor (ExactlyOne) where
+  fmap f (ExactlyOne a) = ExactlyOne (f a)
 
 {-
   Реализуйте инстанс Functor для `Maybe a`
 -}
 data Maybe' a = Just' a | Nothing' deriving (Eq, Show)
 
+instance Functor (Maybe') where
+  fmap _ Nothing' = Nothing'
+  fmap f (Just' a) = Just' (f a)
 {-
   Реализуйте инстанс Functor для `List a`
 -}
 data List a = Nil | Cons a (List a) deriving (Eq, Show)
 
+instance Functor (List) where
+  fmap _ Nil = Nil
+  fmap f (Cons x s) = Cons (f x) (fmap f s)
 {-
   `FileTree a` — тип для представления дерева файловой системы.
 
@@ -146,7 +176,9 @@ latestModified = getMax . foldMap (\FileInfo{..} -> Max modified)
 -}
 
 instance Foldable FileTree where
-  foldMap = undefined
+  foldMap f Empty = mempty
+  foldMap f (File x value) = f value
+  foldMap f (Dir x fileTree) = foldMap (foldMap f) fileTree
 
 {-
   В этом задании вам необходимо придумать и написать иерархию исключений
@@ -163,5 +195,21 @@ instance Foldable FileTree where
 
   Реализовывать инстансы не нужно.
 -}
+
+class Exception e where
+  message :: e -> String
+
+data Severity = Debug | Info | Error | Warn
+newtype JSON = JSON String
+
+class Exception e => APIException e where
+  json :: e -> JSON
+  severity :: e -> Severity
+
+class Exception e => DatabaseException e where
+  dbMessage :: e -> String
+
+class Exception e => DomainException e where
+  context :: e -> String
 
 -- </Задачи для самостоятельного решения>
