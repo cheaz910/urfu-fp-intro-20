@@ -41,18 +41,20 @@ import qualified Data.IntMap as Map
 data Stack a = Stack [a] deriving (Eq, Show)
 
 createStack :: Stack a
-createStack = error "not implemented"
+createStack = Stack[]
 
 -- Обратите внимание, что все структуры данных неизменяемые (immutable). Значит, если операция
 -- предполагает изменение структуры, то она просто должна возвращать новую уже изменённую версию.
 push :: Stack a -> a -> Stack a
-push stack x = error "not implemented"
+push (Stack xs) x = Stack (x : xs)
 
 pop :: Stack a -> Maybe (Stack a)
-pop stack = error "not implemented"
+pop (Stack []) = Nothing
+pop (Stack (x:s)) = Just (Stack s)
 
 peek :: Stack a -> Maybe a
-peek stack = error "not implemented"
+peek (Stack []) = Nothing
+peek (Stack (x:s)) = Just x
 
 -- </Задачи для самостоятельного решения>
 
@@ -170,17 +172,20 @@ dequeue' (q:qs) = (q, qs)             -- возвращаем (элемент, �
 data Queue a = Queue [a] [a] deriving (Eq, Show)
 
 createQueue :: Queue a
-createQueue = error "not implemented"
+createQueue = Queue [] []
 
 enqueue :: Queue a -> a -> Queue a
-enqueue queue x = error "not implemented"
+enqueue (Queue a b) x = Queue (x:a) b
 
 -- если очередь пустая возвращает ошибку
 dequeue :: Queue a -> (a, Queue a)
-dequeue queue = error "not implemented"
+dequeue (Queue [] []) = error "empty"
+dequeue (Queue a []) = dequeue (Queue [] (reverse a))
+dequeue (Queue a (x:b)) = (x, Queue a b)
 
 isEmpty :: Queue a -> Bool
-isEmpty queue = error "not implemented"
+isEmpty (Queue [] []) = True
+isEmpty (Queue a b) = False
 
 -- </Задачи для самостоятельного решения>
 
@@ -376,9 +381,33 @@ emptySet = Set.intersection evenSet oddSet
   https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html?highlight=ambiguous#extension-AllowAmbiguousTypes
 -}
 
+class IntArray a where
+  getByIndex :: a -> Int -> Int
+  initCounter :: Int -> a
+  increase :: a -> Int -> a
+
+instance IntArray [Int] where
+  increase xs index = take index xs ++ [getByIndex xs index + 1] ++ drop (index + 1) xs
+  initCounter n = take n (repeat 0)
+  getByIndex xs index = xs !! index
+
+instance IntArray (Array Int Int) where
+  getByIndex xs index = xs ! index
+  initCounter n = array (0, n) [(i, 0) | i <- [0..n]]
+  increase xs index = xs // [(index, getByIndex xs index + 1)]
+
+instance IntArray (Map.IntMap Int) where
+  increase xs index = Map.insert index (getByIndex xs index + 1) xs
+  initCounter n = Map.fromList [(i, 0) | i <- [0..n]]
+  getByIndex xs index = xs Map.! index
+
 -- Сортирует массив целых неотрицательных чисел по возрастанию
 countingSort :: forall a. IntArray a => [Int] -> [Int]
-countingSort = error "not implemented"
+countingSort [] = []
+countingSort xs = let 
+  count = maximum xs
+  counter = foldl increase (initCounter (count + 1) :: a) xs
+  in foldl (\a b -> a ++ (replicate (getByIndex counter b) b)) [] [0..count] where
 
 {-
   Tак можно запустить функцию сортировки с использованием конкретной реализацией массива:
