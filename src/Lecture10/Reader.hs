@@ -62,18 +62,41 @@ persons =
 
 -- Поиск персоны по номеру
 findById :: PersonId -> Reader [Person] (Maybe Person)
-findById pId = error "not implemented"
+findById pId = do
+  persons' <- ask
+  return $ find (\person -> id person == pId) persons'
 
 processSingle :: Person -> String
-processSingle p = error "not implemented"
+processSingle (Person _ _ name surname sex _ ) = case sex of
+  Male -> "Уважаемый " ++ name ++ " " ++ surname ++ "!\nРазрешите предложить Вам наши услуги."
+  Female -> "Уважаемая " ++ name ++ " " ++ surname ++ "!\nРазрешите предложить Вам наши услуги."
 
 processPair :: Person -> Person -> String
-processPair husband wife = error "not implemented"
+processPair (Person husbandId _ husbandName husbandSurname _ (Just husbandSpId))
+            (Person wifeId _ wifeName wifeSurname _ (Just wifeSpId)) = 
+              if husbandId == wifeSpId && wifeId == husbandSpId then
+                "Уважаемые " ++ husbandName ++ " " ++ husbandSurname ++ " и " ++ wifeName ++
+                " " ++ wifeSurname ++ "!\nРазрешите предложить вам наши услуги."
+              else
+                error "wrong pair"
+processPair _ _ = error "wrong pair"
 
 processPerson :: PersonId -> Reader [Person] (Maybe String)
-processPerson pId = error "not implemented"
+processPerson pId = do
+  person <- findById pId
+  let spouseId = join $ marriedBy <$> person
+  spouse <- case spouseId of
+    (Just spouseId) -> findById spouseId
+    _ -> return Nothing
+  case person of
+    Nothing -> return Nothing
+    Just person' -> case spouse of
+      Nothing -> return $ Just $ processSingle person'
+      Just spouse' -> return $ Just $ processPair person' spouse'
 
 processPersons :: [PersonId] -> [Maybe String]
-processPersons personIds = error "not implemented"
+processPersons personIds = do
+  pId <- personIds
+  return $ runReader (processPerson pId) persons
 
 -- </Задачи для самостоятельного решения>

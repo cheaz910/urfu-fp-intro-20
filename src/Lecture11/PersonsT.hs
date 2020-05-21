@@ -35,22 +35,48 @@ emptyStats :: PersonSearchStats
 emptyStats = PersonSearchStats 0 0
 
 newtype PersonsT a = PersonsT
-  { runPersonsT :: NotImplemented }
+  { runPersonsT :: (ReaderT [Person] (StateT PersonSearchStats (Writer [String])) a) }
   deriving
     ( Functor
     , Applicative
     , Monad
---  ...
+    , MonadState PersonSearchStats
+    , MonadReader [Person]
+    , MonadWriter [String]
     )
 
 runPersons :: PersonsT a -> ((a, PersonSearchStats), [String])
-runPersons p = error "not implemented"
+runPersons = runWriter . flip runStateT emptyStats . flip runReaderT persons . runPersonsT
 
 findById :: PersonId -> PersonsT (Maybe Person)
-findById pId = error "not implemented"
+findById pId = do
+  persons' <- ask
+  let findResult = find (\person -> id person == pId) persons'
+  case findResult of
+    Just person -> tell ["Found: " ++ show (id person)]
+    _ -> tell ["Not found: " ++ show pId]
+  return $ findResult
 
 processPerson :: PersonId -> PersonsT (Maybe String)
-processPerson pId = error "not implemented"
+processPerson pId = do
+  put emptyStats
+  person <- findById pId
+  let spouseId = join $ marriedBy <$> person
+  spouse <- case spouseId of
+    (Just spouseId) -> findById spouseId
+    _ -> return Nothing
+  case person of
+    Nothing -> return Nothing
+    Just person' -> case spouse of
+      Nothing -> do
+        _ <- modify addSingleStat
+        return $ Just $ processSingle person'
+      Just spouse' -> do
+        _ <- modify addMarriedStat
+        return $ Just $ processPair person' spouse'
+  where
+    addSingleStat stats@(PersonSearchStats _ s) = stats {singlePersonsCount = s + 1}
+    addMarriedStat stats@(PersonSearchStats m _) = stats {marriedPersonsCount = m + 1}
 
 {-
   Функция должна выводить на экран:
@@ -60,6 +86,13 @@ processPerson pId = error "not implemented"
   Записывать в "persons.log" общий лог всех поисков.
 -}
 processPersons :: [PersonId] -> IO ()
-processPersons personIds = error "not implemented"
+processPersons personIds = do
+  let ((results, stats), logs) = runPersons $ mapM (\p -> do
+                                                      result <- processPerson p
+                                                      return (p, result)
+                                                   ) personIds
+  mapM_ (\(id, result) -> putStrLn ("found: " ++ show id ++ "\n" ++ show result)) results
+  putStrLn $ "stats:\n" ++ show stats
+  writeFile "persons.log" $ show logs
 
 -- </Задачи для самостоятельного решения>
