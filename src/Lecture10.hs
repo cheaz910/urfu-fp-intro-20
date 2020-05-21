@@ -100,7 +100,9 @@ sqrtListComprehensions list = [ x^2 | x <- list ]
 
 -- "Наивная" версия с использованием map'ов
 cartesianProduct :: [a] -> [b] -> [(a,b)]
-cartesianProduct xs ys = [(x,y) | x <- xs, y <- ys]
+cartesianProduct xs [] = []
+cartesianProduct [] ys = []
+cartesianProduct (x:xs) ys = map ((,) x) ys ++ cartesianProduct xs ys
 
 -- По аналогии с функцией sqrtList перепишите cartesianProduct с использованием return и (=<<)
 cartesianProductMonad :: [a] -> [b] -> [(a,b)]
