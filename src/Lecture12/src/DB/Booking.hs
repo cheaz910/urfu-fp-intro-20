@@ -9,9 +9,10 @@ import Database.SQLite.Simple.ToField
 import Database.SQLite.Simple.FromField
 import Servant.API
 import GHC.Generics
+import Control.Monad.IO.Class
 
 import DB.MovieSession
-import DB.Seat
+import DB.Seat (SeatId)
 import DB.Internal
 
 {-
@@ -58,6 +59,49 @@ instance FromJSON Booking
 -}
 tryBook
   :: DBMonad m
+  => Booking
+  -> m (Maybe String)
+tryBook booking = do
+  if isPreliminary booking then do
+    compareResult <- liftIO $ compareTimes (createdAt booking)
+    if (compareResult)
+      then do
+        payBooking (bookingId booking) (seatId booking)
+        return Nothing
+      else do
+        deleteBooking (bookingId booking)
+        return $ Just "Booking is not found"
+  else
+    return $ Just "Booking is already paid"
+
+preliminaryTime :: NominalDiffTime
+preliminaryTime = 600
+
+compareTimes :: UTCTime -> IO Bool
+compareTimes createdAt = do
+  currTime <- getCurrentTime
+  let diff = (diffUTCTime createdAt currTime)
+  return $ diff < preliminaryTime
+
+payBooking
+  :: DBMonad m
   => BookingId
-  -> m Bool
-tryBook = undefined
+  -> SeatId
+  -> m ()
+payBooking bId sId = runSQL $ \conn -> do
+  execute conn "UPDATE bookings SET is_preliminary = false WHERE id = ?" bId
+  execute conn "UPDATE seats SET available = false WHERE id = ?" sId
+
+getBookings
+  :: DBMonad m
+  => BookingId
+  -> m [Booking]
+getBookings bId = runSQL $ \conn ->
+  query conn "SELECT * from bookings where id = ?" bId
+
+deleteBooking 
+  :: DBMonad m
+  => BookingId
+  -> m ()
+deleteBooking bId = runSQL $ \conn ->
+  execute conn "DELETE FROM bookings WHERE id = ?" (bId)

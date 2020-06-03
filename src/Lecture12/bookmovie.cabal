@@ -11,6 +11,7 @@ library
   exposed-modules:     API
                      , API.Session
                      , API.Preliminary
+                     , API.Booking
                      , App
                      , DB.Booking
                      , DB.MovieSession
@@ -58,6 +59,6 @@ library
 executable bookmovie
   hs-source-dirs:      bin
   main-is:             Main.hs
-  build-depends:       base >=4.13 && <4.14
+  build-depends:       base >=4.12 && <4.14
                      , bookmovie
   default-language:    Haskell2010
